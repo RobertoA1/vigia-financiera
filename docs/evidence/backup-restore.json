@@ -1,0 +1,14 @@
+{
+  "mode": "actual pg_dump custom format + pg_restore into a separate empty database",
+  "postgres_version": "18.6",
+  "restored_counts": {
+    "users": 2,
+    "evaluations": 36,
+    "alerts": 26,
+    "incidents": 26,
+    "reports": 9
+  },
+  "foreign_keys": 10,
+  "encrypted_mfa_readable_with_environment_key": true,
+  "dump_excluded_from_git": true
+}

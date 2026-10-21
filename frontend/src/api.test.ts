@@ -1,0 +1,12 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
+let module:typeof import('./api');
+beforeEach(async()=>{vi.resetModules();module=await import('./api');});
+afterEach(()=>vi.unstubAllGlobals());
+describe('API session boundary',()=>{
+ it('includes the memory bearer and credentials without persisting a token',async()=>{const fetch=vi.fn().mockResolvedValue(json({ok:true}));vi.stubGlobal('fetch',fetch);const storage=vi.spyOn(Storage.prototype,'setItem');module.setToken('memory-access');await module.api('/auth/me');const [,options]=fetch.mock.calls[0];expect(options.credentials).toBe('include');expect(options.headers.get('Authorization')).toBe('Bearer memory-access');expect(storage).not.toHaveBeenCalled();storage.mockRestore();});
+ it('refreshes once after expiration and retries with the new bearer',async()=>{const fetch=vi.fn().mockResolvedValueOnce(json({detail:'expired'},401)).mockResolvedValueOnce(json({access_token:'new-token'})).mockResolvedValueOnce(json({id:'account'}));vi.stubGlobal('fetch',fetch);expect(await module.api('/auth/me')).toEqual({id:'account'});expect(fetch).toHaveBeenCalledTimes(3);expect(fetch.mock.calls[1][0]).toMatch(/auth\/refresh$/);expect(fetch.mock.calls[2][1].headers.get('Authorization')).toBe('Bearer new-token');});
+ it('does not silently retry invalid login credentials',async()=>{const fetch=vi.fn().mockResolvedValue(json({detail:'Credenciales inválidas'},401));vi.stubGlobal('fetch',fetch);await expect(module.post('/auth/login',{email:'test@example.org',password:'bad'})).rejects.toMatchObject({status:401,message:'Credenciales inválidas'});expect(fetch).toHaveBeenCalledTimes(1);});
+ it('deduplicates concurrent cookie refresh requests',async()=>{const fetch=vi.fn().mockResolvedValue(json({access_token:'same-token'}));vi.stubGlobal('fetch',fetch);const [a,b]=await Promise.all([module.refreshSession(),module.refreshSession()]);expect(a).toEqual(b);expect(fetch).toHaveBeenCalledTimes(1);});
+ it('turns non-JSON proxy failures into an actionable error',async()=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response('<html>gateway failed</html>',{status:502})));await expect(module.api('/dashboard')).rejects.toMatchObject({status:502,message:'No se pudo completar la solicitud. Inténtalo de nuevo.'});});
+});

@@ -1,0 +1,43 @@
+{
+  "dataset": "PhiUSIIL UCI 967",
+  "source": "https://archive.ics.uci.edu/dataset/967/phiusiil+phishing+url+dataset",
+  "license": "CC BY 4.0",
+  "sha256": "0a639fd03aea6308c5b1c10c92aa23c2ce1505447a9137271865cd0badc9a59a",
+  "seed": 20261020,
+  "dataset_labels": {
+    "0": "phishing",
+    "1": "legitimate"
+  },
+  "population": {
+    "0": 100945,
+    "1": 134850
+  },
+  "sample_per_class": 1000,
+  "threshold": 50,
+  "mode": "offline lexical only; no reputation, LLM or webpage fetch",
+  "rejected_out_of_scope": {
+    "phishing": 0,
+    "legitimate": 0
+  },
+  "confusion_matrix": {
+    "true_positive": 1,
+    "false_positive": 0,
+    "true_negative": 1000,
+    "false_negative": 999
+  },
+  "precision": 1.0,
+  "recall": 0.001,
+  "false_positive_rate": 0.0,
+  "false_negative_rate": 0.999,
+  "latency_ms": {
+    "p50": 0.15086800067365402,
+    "p95": 0.30032599988771835,
+    "p99": 0.4304270005377475
+  },
+  "limitations": [
+    "Muestra histórica global; no representativa de bancos peruanos ni amenazas actuales",
+    "No es un modelo entrenado ni un detector general de phishing",
+    "Heurísticas orientadas a suplantación BCP/Interbank/BBVA",
+    "Los rechazos por validación se informan aparte; no se cuentan como detecciones"
+  ]
+}

@@ -1,0 +1,109 @@
+name: ${COMPOSE_PROJECT_NAME:-vigia-financiera}
+services:
+  db:
+    image: postgres:18.6-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Ejecuta scripts/init_env.py}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Configura POSTGRES_PASSWORD}
+    volumes: [pgdata:/var/lib/postgresql]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  migrate:
+    build: ./backend
+    env_file: .env
+    command: [sh, -c, 'alembic upgrade head && python -m app.seed']
+    depends_on:
+      db: {condition: service_healthy}
+  api:
+    build: ./backend
+    env_file: .env
+    ports: ['127.0.0.1:${API_PORT:-8000}:8000']
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, python, -c, 'import urllib.request; urllib.request.urlopen("http://localhost:8000/health")']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+  worker:
+    build: ./backend
+    env_file: .env
+    command: [python, -m, app.worker]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    restart: unless-stopped
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
+        VITE_APP_NAME: ${VITE_APP_NAME:-Vigía Financiera}
+        VITE_APP_SHORT_NAME: ${VITE_APP_SHORT_NAME:-VIGÍA}
+        VITE_ORGANIZATION: ${VITE_ORGANIZATION:-Laboratorio de seguridad financiera}
+        VITE_ACCENT_COLOR: ${VITE_ACCENT_COLOR:-#2bd8ae}
+        VITE_POLL_INTERVAL_MS: ${VITE_POLL_INTERVAL_MS:-5000}
+    ports: ['127.0.0.1:${WEB_PORT:-8080}:80']
+    depends_on:
+      api: {condition: service_healthy}
+    restart: unless-stopped
+  mailpit:
+    image: axllent/mailpit:v1.31.6
+    ports: ['127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025']
+    restart: unless-stopped
+  n8n:
+    image: ${N8N_IMAGE:-n8nio/n8n:2.44.4}
+    profiles: [integrations]
+    ports: ['127.0.0.1:${N8N_PORT:-5678}:5678']
+    environment:
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678/}
+      N8N_SECURE_COOKIE: ${N8N_SECURE_COOKIE:-false}
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: 'false'
+      N8N_DIAGNOSTICS_ENABLED: 'false'
+      GENERIC_TIMEZONE: ${AUTOMATION_TIMEZONE:-America/Lima}
+      INTERNAL_API_URL: http://api:8000/api/v1
+      WEBHOOK_KEY: ${WEBHOOK_SHARED_KEY}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM}
+      SMTP_SSL: ${SMTP_SSL:-false}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
+      EMAIL_NOTIFICATIONS_ENABLED: ${N8N_EMAIL_ENABLED:-false}
+      ALERT_RECIPIENT: ${ALERT_RECIPIENT:-alerts@vigia.local}
+      APP_URL: ${PUBLIC_APP_URL}
+      REPORT_SCHEDULE_CRON: ${REPORT_SCHEDULE_CRON:-0 8 * * 1}
+      N8N_INTERNAL_URL: http://n8n:5678
+    volumes: [n8ndata:/home/node/.n8n, './automations/n8n:/flows:ro']
+    depends_on:
+      api: {condition: service_healthy}
+    restart: unless-stopped
+  langflow:
+    image: ${LANGFLOW_IMAGE:-langflowai/langflow:1.6.5}
+    profiles: [integrations]
+    ports: ['127.0.0.1:${LANGFLOW_PORT:-7860}:7860']
+    environment:
+      LANGFLOW_AUTO_LOGIN: ${LANGFLOW_AUTO_LOGIN:-false}
+      LANGFLOW_SUPERUSER: ${LANGFLOW_SUPERUSER:-admin}
+      LANGFLOW_SUPERUSER_PASSWORD: ${LANGFLOW_SUPERUSER_PASSWORD}
+      LANGFLOW_SECRET_KEY: ${LANGFLOW_SECRET_KEY}
+      LANGFLOW_CONFIG_DIR: /app/langflow
+      LANGFLOW_API_URL: http://api:8000/api/v1
+      WEBHOOK_KEY: ${WEBHOOK_SHARED_KEY}
+    volumes: [langflowdata:/app/langflow, './automations/langflow:/flows:ro']
+    depends_on:
+      api: {condition: service_healthy}
+    restart: unless-stopped
+volumes:
+  pgdata:
+  n8ndata:
+  langflowdata:

@@ -1,0 +1,19 @@
+{
+  "mode": "real FastAPI + PostgreSQL + worker, local host; no external providers",
+  "concurrent_users": 1,
+  "requests": 1,
+  "all_http_status": 201,
+  "authentication": "ephemeral persisted sessions; interactive login verified separately by browser E2E",
+  "http_latency_ms": {
+    "p50": 17.134012003225507,
+    "p95": 17.134012003225507,
+    "p99": 17.134012003225507
+  },
+  "reports_downloaded": [
+    "pdf",
+    "docx",
+    "xlsx"
+  ],
+  "report_scope": "own disposable academic fixture",
+  "fixtures_deleted": true
+}

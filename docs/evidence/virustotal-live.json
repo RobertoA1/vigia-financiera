@@ -1,0 +1,22 @@
+{
+  "mode": "real external API, existing public-domain report only",
+  "domain": "viabcp.com",
+  "reputation": {
+    "provider": "virustotal",
+    "checked_at": "2026-10-21T16:07:13.770291+00:00",
+    "scope": "domain",
+    "domain": "viabcp.com",
+    "status": "available",
+    "stats": {
+      "malicious": 0,
+      "suspicious": 0,
+      "undetected": 34,
+      "harmless": 58,
+      "timeout": 0
+    },
+    "evidence_at": 1792569643,
+    "reference": "https://www.virustotal.com/gui/domain/viabcp.com"
+  },
+  "risk": "low",
+  "status": "complete"
+}

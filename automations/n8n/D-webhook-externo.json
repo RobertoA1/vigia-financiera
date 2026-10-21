@@ -1,0 +1,85 @@
+{
+  "id": "c83798cf-5c75-5434-a828-0c859ef2743c",
+  "name": "D · Ingreso externo autenticado",
+  "nodes": [
+    {
+      "id": "b1f199da-cc6b-53e6-ae5e-1dffa33dd692",
+      "name": "Webhook autenticado",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vigia-external",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "webhookId": "75338092-b876-55c8-b228-9cddd003e116",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "vigia-header-auth",
+          "name": "Vigia webhook key"
+        }
+      }
+    },
+    {
+      "id": "b4f45cd3-942d-5051-9639-a0e07f630d7c",
+      "name": "Validar y registrar en API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.INTERNAL_API_URL + '/webhooks/events' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Key",
+              "value": "={{ $env.WEBHOOK_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}"
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    }
+  ],
+  "connections": {
+    "Webhook autenticado": {
+      "main": [
+        [
+          {
+            "node": "Validar y registrar en API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveExecutionProgress": false,
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all",
+    "executionTimeout": 60
+  },
+  "active": false,
+  "pinData": {},
+  "tags": []
+}

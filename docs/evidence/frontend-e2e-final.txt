@@ -1,0 +1,24 @@
+Final verification: 2026-10-21
+Browser: actual Chromium via Playwright; API/PostgreSQL/report worker live.
+No simulated browser API responses. Controlled academic .invalid evidence only.
+
+PASS admin login and MFA
+PASS refresh cookie restores session after reload
+PASS manual URLs, redaction and message extraction without external consent
+PASS history filtering and non-navigable evidence
+PASS alerts and incident workflow with timeline
+PASS actual PDF, DOCX and XLSX report generation/download
+PASS administrator creates member account
+PASS member scope, timezone detection/configuration and persistence
+PASS member ARCO request/export and administrator resolution
+PASS populated desktop/mobile screenshots, mobile navigation and reload
+PASS no browser JavaScript errors or persistent web tokens
+
+PASS unpacked MV3 service worker and popup in real Chromium
+PASS no tokens, external consent or automatic navigation permission by default
+PASS optional webNavigation/notifications absence does not crash the worker
+
+Vitest 5.0.5: 8 tests passed in 2 files.
+Final full browser pass repeated after report font/layout/score fixes, backend
+reanalysis/privacy fixes, and dependency updates. No frontend build was repeated
+because the final backend-only changes did not change the frontend bundle.

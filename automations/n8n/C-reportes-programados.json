@@ -1,0 +1,121 @@
+{
+  "id": "c0a4594b-6265-5a57-8c1b-1a322261ddef",
+  "name": "C · Reporte programado",
+  "nodes": [
+    {
+      "id": "88e96788-6120-5863-8894-d390e6e0ccf5",
+      "name": "Programación configurable",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "={{ $env.REPORT_SCHEDULE_CRON || \"0 8 * * 1\" }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ed818cdf-8990-577e-9d00-cde774e5b286",
+      "name": "Resumen autorizado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.INTERNAL_API_URL + '/automation/summary' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Key",
+              "value": "={{ $env.WEBHOOK_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "4910224b-ce39-5ea7-9f3b-19d5be192777",
+      "name": "Solicitar reporte consolidado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.INTERNAL_API_URL + '/webhooks/events' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Key",
+              "value": "={{ $env.WEBHOOK_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {type:\"report.request\",data:{kind:\"consolidated\",format:\"pdf\"},event_id:\"scheduled-\" + $now.toUTC().toFormat(\"yyyy-LL-dd-HH-mm\")} }}"
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    }
+  ],
+  "connections": {
+    "Programación configurable": {
+      "main": [
+        [
+          {
+            "node": "Resumen autorizado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resumen autorizado": {
+      "main": [
+        [
+          {
+            "node": "Solicitar reporte consolidado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveExecutionProgress": false,
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all",
+    "executionTimeout": 60
+  },
+  "active": false,
+  "pinData": {},
+  "tags": []
+}

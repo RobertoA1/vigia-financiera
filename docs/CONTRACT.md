@@ -1,0 +1,28 @@
+# Contrato de integración — Vigía Financiera
+
+Versión 1, 20/10/2026. API `/api/v1`; JSON, timestamps UTC ISO 8601, IDs UUID string. Interfaz española. No se navega a URLs sospechosas. Monolito FastAPI + PostgreSQL, worker durable PostgreSQL; sin Redis para 10–20 usuarios. Actualización progresiva mediante consulta cada 5 segundos (alternativa a WebSocket). React/Vite, extensión MV3. Docker para todos los servicios; Vercel aloja frontend y requiere API Docker pública HTTPS configurable.
+
+## Autenticación
+`POST /auth/login {email,password,totp?,timezone?}` → `{access_token,token_type:"bearer",user:User,mfa_required:boolean}`. Refresh opaco en cookie HttpOnly, endpoint `POST /auth/refresh`; access token solamente en memoria web. Extensión en chrome.storage.session. `POST /auth/logout`; `GET /auth/me`; `PATCH /auth/me {name?,timezone?,email_notifications?,browser_notifications?}`. User: `{id,email,name,role:"admin"|"analyst"|"user",active,mfa_enabled,timezone,email_notifications,browser_notifications}`. `POST /auth/mfa/setup` → `{secret,uri}`; `POST /auth/mfa/confirm {code}` → `{recovery_codes:string[]}`. Sesión de matrícula MFA solo permite perfil, MFA y logout. `POST /auth/recovery/request {email}` respuesta genérica; `POST /auth/recovery/complete {token,password}`. `POST /auth/password {current_password,password}`.
+
+## Evaluaciones
+`POST /evaluations {url,source:"manual"|"extension"|"email"|"sms"|"api",external_consent:boolean=false}` → Evaluation (201); `POST /evaluations/extract {text,source,external_consent}` → `{evaluations:Evaluation[],rejected:string[]}`. Texto solo en memoria; máximo 10 URLs por lote. `GET /evaluations?q=&risk=&status=&limit=50&offset=0` → `{items,total}`; `GET /evaluations/{id}`; `POST /evaluations/{id}/reanalyze`.
+
+Evaluation: `{id,user_id,domain,url_display,score:int,risk:"low"|"moderate"|"high"|"critical",status:"preliminary"|"complete"|"pending"|"inconclusive",source,indicators:Indicator[],sources:object[],explanation,recommendations:string[],engine_version,created_at,updated_at,ai:object|null,reputation:object|null,latency_ms:number}`. Indicator: `{code,title,detail,weight,group}`. No URL cruda persistida; url_display es origen + ruta redactada. Reputación de dominio únicamente, con consentimiento explícito; no se envían rutas ni parámetros.
+
+## Dashboard y gestión
+`GET /dashboard?days=7` → `{total_evaluations,suspicious_evaluations,open_incidents,resolved_incidents,risk_distribution:{low,moderate,high,critical},trend:[{date,total,suspicious}],recent:Evaluation[],geography_available:false}`. RBAC usuario solo propios, analista/admin organización.
+`GET /alerts` → `{items,total}`; Alert `{id,evaluation_id,user_id,title,risk,message,read,created_at}`; `PATCH /alerts/{id} {read}`.
+`GET /incidents` → `{items,total}`; Incident `{id,evaluation_id,title,severity,status:"open"|"investigating"|"resolved"|"dismissed",assigned_to,created_at,updated_at,timeline:[{at,actor,action,note}]}`. `PATCH /incidents/{id} {status?,assigned_to?,note?}` solo analista/admin. `POST /incidents {evaluation_id,title?}`. Las evaluaciones >=50 crean alerta+incidente deduplicados.
+`GET /users`, `POST /users {email,name,password,role}`, `PATCH /users/{id} {role?,active?,name?}` admin. `GET /roles` → `{items:[{name,permissions:string[]}]}`. Roles iniciales fijos, asignación administrable.
+`GET /integrations` admin → `{items:[{name,enabled,configured,status}]}` sin secretos. `GET /policies` y `PATCH /policies {retention_days?,email_notifications?,webhook_notifications?}` admin. `GET /audit` → `{items,total}` admin.
+`POST /reports {kind:"evaluations"|"alerts"|"incidents"|"consolidated",format:"pdf"|"docx"|"xlsx",date_from?,date_to?,risk?}` → Report `{id,kind,format,status,created_at,filters}`. `GET /reports` → `{items,total}`; `GET /reports/{id}/download` con Bearer, RBAC del solicitante.
+`GET /privacy/export` datos propios; `POST /privacy/requests {kind:"access"|"rectification"|"cancellation"|"opposition",message}` registra solicitud ARCO.
+
+## Automatización
+`POST /webhooks/events` header `X-Webhook-Key`, `{event_id,type:"risk.alert"|"incident.escalate"|"report.request",data:object}` → `{accepted,duplicate}`; idempotencia persistente, llave de integración dedicada, auditoría. No acepta URLs de callback arbitrarias. `GET /automation/summary` y `POST /automation/reports` con llave dedicada, reportes de servicio acotados. Salida backend hacia n8n URL fija configurada y cabecera `X-Webhook-Key`; IDs eventos UUID. Receptor de callbacks de notificación `POST /webhooks/notifications {event_id,status,channel,detail?}` misma llave, idempotente.
+
+## Interfaces internas
+`app.detection.evaluate_url(url:str, source:str='manual') -> dict`: devuelve campos de Evaluation sin id/user/timestamps, y domain. Lanza ValueError por entrada inválida/privada. Solo heurística local sin DNS/HTTP a destino. `async app.detection.enrich(evidence:dict, settings:object) -> dict`: reputación y merge de puntuación, resultado campos actualizados. `async app.intelligence.analyze_evidence(evidence:dict, *, settings:object) -> dict`: contexto, correlación, explicación y gestión mediante LangChain, fallback explícito, ninguna ejecución ni navegación arbitraria. `app.reporting.render_report(kind:str, format:str, rows:list[dict], metadata:dict) -> bytes`: reportes reales, nunca código de fórmulas de celdas, acepta metadatos de filtros/período/solicitante.
+
+Configuración Pydantic settings en `app.config`: secretos, URLs, cuotas, umbrales, bancos, retención, SMTP, modelos, branding y tiempos desde entorno. Variables se documentan en `.env.example`. Errores FastAPI estándar `{detail:...}`; 401/403/404/409/422/429 apropiados. Polling no comparte datos entre usuarios.

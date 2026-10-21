@@ -1,0 +1,12 @@
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import { SWRConfig } from 'swr';
+import { api } from './api';
+import { AuthProvider } from './auth';
+import App from './App';
+import { ErrorBoundary } from './ErrorBoundary';
+import './styles.css';
+const accent = import.meta.env.VITE_ACCENT_COLOR;
+if (accent && /^#[0-9a-f]{6}$/i.test(accent)) document.documentElement.style.setProperty('--accent', accent);
+ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><ErrorBoundary><BrowserRouter><SWRConfig value={{fetcher:api,revalidateOnFocus:true,errorRetryCount:1,shouldRetryOnError:err=>![401,403,404].includes(err.status),dedupingInterval:2000}}><AuthProvider><App/></AuthProvider></SWRConfig></BrowserRouter></ErrorBoundary></React.StrictMode>);
